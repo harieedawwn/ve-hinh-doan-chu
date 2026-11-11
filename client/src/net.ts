@@ -54,7 +54,7 @@ export class GameClient {
   rtt = 0;
   fatal: { code: string; msg: string } | null = null;
   resyncs = 0;
-  stats = { rxMsgs: 0, rxBytes: 0, txMsgs: 0, txBytes: 0, reconnects: 0 };
+  stats = { rxMsgs: 0, rxBytes: 0, txMsgs: 0, txBytes: 0, reconnects: 0, gaps: 0 };
 
   private o: ClientOptions;
   private ws: WebSocket | null = null;
@@ -100,6 +100,12 @@ export class GameClient {
   connect(): void {
     this.stopped = false;
     this.open(false);
+  }
+
+  /** Test aid: kill the socket without a clean close (as a phone losing signal would); auto-reconnect follows. */
+  simulateDrop(): void {
+    const ws = this.ws as unknown as { terminate?: () => void; close(): void } | null;
+    if (ws?.terminate) ws.terminate(); else ws?.close();
   }
 
   close(): void {
@@ -201,7 +207,7 @@ export class GameClient {
   }
 
   private onRelay(n: number, ops: Op[], span: number): void {
-    if (n !== this.log.length) { this.requestResync(); return; }
+    if (n !== this.log.length) { this.stats.gaps++; this.requestResync(); return; }
     const err = this.playback ? this.playback.enqueue(ops, span, this.nowMs()) : this.log.tryAppend(ops);
     if (err) { this.requestResync(); return; }
     this.emit('draw', n, ops);

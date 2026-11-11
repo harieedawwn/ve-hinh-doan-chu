@@ -39,8 +39,8 @@ export const MAX_DRAW_MSG_LEN = 24_000;
 export const MAX_SETTINGS_MSG_LEN = 24_000;
 
 // Canvas op limits per turn
-export const MAX_OPS_PER_TURN = 6_000;
-export const MAX_POINTS_PER_TURN = 40_000;
+export const MAX_OPS_PER_TURN = 12_000;   // a UI emitting one op per pointer event needs ~60/s for 240 s
+export const MAX_POINTS_PER_TURN = 60_000;
 export const MAX_POINTS_PER_STROKE = 3_000;
 export const MAX_OPS_PER_BATCH = 120;
 export const MAX_POINTS_PER_BATCH = 400;
