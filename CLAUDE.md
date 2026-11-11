@@ -2,6 +2,7 @@
 
 Online multiplayer draw-and-guess game (Vietnamese UI, up to 50 players/room, phones via Zalo links).
 Cloudflare Workers + one SQLite-backed Durable Object per room (WebSocket Hibernation), static client on the same Worker.
+**Public URL: https://ve-hinh-doan-chu.nguyenlehaidang2k10.workers.dev/** (build id: `/version`).
 Read **SPEC.md** (protocol, state, settings, rules, limits) and **PLAN.md** (stages) before changing anything.
 
 ## Layout

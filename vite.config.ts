@@ -6,6 +6,7 @@ import preact from '@preact/preset-vite';
 // (static asset, free) so a deploy can be polled until the new build is live.
 function buildInfo(): { sha: string; id: string; builtAt: string } {
   let sha = process.env.WORKERS_CI_COMMIT_SHA || '';
+  if (!/^[0-9a-f]{40}$/.test(sha)) sha = ''; // Workers Builds has been seen to set a branch name here
   if (!sha) { try { sha = execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { sha = 'unknown'; } }
   const builtAt = new Date().toISOString();
   return { sha, id: `${sha.slice(0, 7)}-${builtAt.replace(/[-:T]/g, '').slice(0, 12)}`, builtAt };
