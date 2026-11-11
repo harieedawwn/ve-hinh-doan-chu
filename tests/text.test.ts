@@ -69,7 +69,7 @@ describe('word packs', () => {
     expect(checkWord('cạt́').length).toBeGreaterThan(0);    // two tone marks
     expect(checkWord('con  mèo').length).toBeGreaterThan(0);
     expect(checkWord('bus').length).toBeGreaterThan(0);
-    expect(checkWord('còn').length).toBe(0);               // decomposed input is flagged as not NFC
+    expect(checkWord('co\u0300n').length).toBeGreaterThan(0);   // decomposed (non-NFC) input is flagged
   });
   it('pool filters and picks distinct unused words', () => {
     const pool = builtinPool(['animal'], ['easy']);
