@@ -50,6 +50,7 @@ export class Room extends DurableObject<Env> implements Io {
         conns.push({ cid: a.cid, pid: a.pid });
       }
       this.core.restore(data, ops, conns);
+      console.log(`[room ${data?.code ?? '?'}] woke: players=${data?.players.length ?? 0} sockets=${conns.length} ops=${ops.length}`);
     });
   }
 
