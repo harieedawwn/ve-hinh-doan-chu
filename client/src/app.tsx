@@ -10,6 +10,7 @@ import { FullscreenAsk, SettingsSheet, goFullscreen } from './settings.tsx';
 import { enterRoom, leaveRoom, useSession } from './session.ts';
 import { prefs, usePrefs } from './prefs.ts';
 import { roomCodeFromPath, store } from './platform.ts';
+import { QUOTA_RESET_TEXT } from './health.ts';
 
 function Notice({ title, text, action, onAction }: { title: string; text: string; action: string; onAction: () => void }): JSX.Element {
   return (
@@ -19,6 +20,20 @@ function Notice({ title, text, action, onAction }: { title: string; text: string
         <h1 class="h2">{title}</h1>
         <p>{text}</p>
         <Button big tone="tomato" onClick={onAction}>{action}</Button>
+      </section>
+    </main>
+  );
+}
+
+function QuotaNotice(): JSX.Element {
+  return (
+    <main class="screen center-screen">
+      <section class="card stack notice" role="alert">
+        <Icon n="offline" size={40} />
+        <h1 class="h2">Hết lượt chơi hôm nay</h1>
+        <p>Máy chủ miễn phí đã dùng hết lượt trong ngày. Lượt mới có lúc {QUOTA_RESET_TEXT}.</p>
+        <p class="note">Phòng bỏ trống quá 30 phút sẽ bị đóng, khi đó hãy tạo phòng mới.</p>
+        <Button big tone="tomato" onClick={() => location.reload()}>Thử lại</Button>
       </section>
     </main>
   );
@@ -59,6 +74,8 @@ export function App(): JSX.Element {
   let body: JSX.Element;
   if (c?.fatal) {
     body = <Notice title="Không vào được" text={c.fatal.msg} action="Về trang chủ" onAction={() => leaveRoom()} />;
+  } else if (c && session.quota && c.status !== 'open') {
+    body = <QuotaNotice />;
   } else if (c && !c.room) {
     body = (session_gaveUp()
       ? <Notice title="Máy chủ đang bận" text="Thử lại sau ít phút." action="Thử lại" onAction={() => location.reload()} />

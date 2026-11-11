@@ -70,6 +70,7 @@ export function SettingsSheet({ open, onClose, c }: { open: boolean; onClose: ()
           <Button tone="tomato" icon="flag" onClick={() => { if (sure) { c!.send({ t: 'end' }); setSure(false); onClose(); } else setSure(true); }}>{sure ? 'Chắc chưa?' : 'Kết thúc ván'}</Button>
         ) : null}
         {room ? <Button icon="leave" onClick={() => { onClose(); leaveRoom(); }}>Rời phòng</Button> : null}
+        <p class="note">Bản {__BUILD_ID__}</p>
       </div>
     </Sheet>
   );

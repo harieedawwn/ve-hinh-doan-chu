@@ -7,6 +7,7 @@ import { DrawSurface } from './draw/surface.ts';
 import { prefs } from './prefs.ts';
 import { setAwake, store } from './platform.ts';
 import { cue } from './sound.ts';
+import { probeServer } from './health.ts';
 
 export interface GalleryItem { turn: number; word: string; drawer: string; url: string; blob: Blob }
 
@@ -21,6 +22,8 @@ export const session = {
   gallery: [] as GalleryItem[],
   /** consecutive failed attempts before the first welcome (server down / over quota) */
   gaveUp: false,
+  /** the server answers but refuses: the free daily quota is used up */
+  quota: false,
 };
 
 const subs = new Set<() => void>();
@@ -43,7 +46,7 @@ export function leaveRoom(goHome = true): void {
     store.removeItem('vhdc:' + c.room?.code);
     c.close();
   }
-  session.client = null; session.gaveUp = false;
+  session.client = null; session.gaveUp = false; session.quota = false;
   clearGallery();
   setAwake(false);
   getSurface().setEnabled(false);
@@ -59,7 +62,7 @@ function clearGallery(): void {
 export function enterRoom(code: string, opts: { name: string; avatar: number; create: boolean }): void {
   if (session.client) session.client.close();
   clearGallery();
-  session.gaveUp = false;
+  session.gaveUp = false; session.quota = false;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const c = new GameClient({ url: `${proto}://${location.host}/ws/${code}`, code, name: opts.name, avatar: opts.avatar, create: opts.create, storage: store });
   const s = getSurface();
@@ -84,7 +87,8 @@ export function enterRoom(code: string, opts: { name: string; avatar: number; cr
     if (c.lastGuessPts !== lastGuessPts) { lastGuessPts = c.lastGuessPts; cue('correct'); }
     if (c.closeHint !== lastClose) { lastClose = c.closeHint; }
     if (!c.you && c.stats.reconnects >= 3 && !c.fatal) session.gaveUp = true;
-    if (c.you) session.gaveUp = false;
+    if (c.you && c.status === 'open') { session.gaveUp = false; session.quota = false; }
+    if (!c.fatal && c.failures >= 3 && !probing) void checkQuota(c);
     notify();
   });
   c.on('message', (m) => {
@@ -94,6 +98,16 @@ export function enterRoom(code: string, opts: { name: string; avatar: number; cr
   c.on('status', () => notify());
   c.connect();
   notify();
+}
+
+let probing = false;
+/** After 3 failed attempts ask the health endpoint whether the free quota is gone (once per streak, again after 20 s). */
+async function checkQuota(c: GameClient): Promise<void> {
+  probing = true;
+  try {
+    const h = await probeServer();
+    if (session.client === c && c.status !== 'open') { session.quota = h === 'quota'; notify(); }
+  } finally { setTimeout(() => { probing = false; }, 20_000); }
 }
 
 async function capture(c: GameClient): Promise<void> {

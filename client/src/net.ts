@@ -92,6 +92,8 @@ export class GameClient {
     this.engine = engine; this.playback = playback; this.log = engine.log;
   }
 
+  /** Consecutive connection attempts that have not reached `open` (reset on success). */
+  get failures(): number { return this.attempt; }
   get isDrawer(): boolean { return !!this.room && this.room.drawerId === this.you && this.room.phase === 'drawing'; }
   get me() { return this.room?.players.find((p) => p.id === this.you); }
 

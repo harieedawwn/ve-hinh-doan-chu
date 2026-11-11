@@ -57,6 +57,7 @@ export class Room extends DurableObject<Env> implements Io {
   // ---------------------------------------------------------------- HTTP / WebSocket entry
 
   async fetch(request: Request): Promise<Response> {
+    if (request.headers.get('x-probe')) return new Response('ok');
     if (request.headers.get('Upgrade') !== 'websocket') return new Response('Expected WebSocket', { status: 426 });
     const code = request.headers.get('x-room-code');
     if (!code) return new Response('Missing room code', { status: 400 });
