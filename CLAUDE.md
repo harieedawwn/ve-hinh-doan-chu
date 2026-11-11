@@ -15,7 +15,7 @@ Read **SPEC.md** (protocol, state, settings, rules, limits) and **PLAN.md** (sta
 npm ci                    # install (clean clone)
 npm run dev               # build client, then wrangler dev on http://localhost:8787 (no Cloudflare account needed)
 npm run dev:client        # vite dev server on :5173, proxies /ws to :8787 (run wrangler dev too)
-npm test                  # vitest (78 tests, ~1 s)
+npm test                  # vitest (92 tests, ~1 s)
 npm run typecheck         # tsc --noEmit
 npm run words:check       # validate word packs (dups, NFC, diacritics, syllable shapes)
 npm run uicheck           # Playwright layout check at 4 viewports + behaviour checks; screenshots in reports/screens/, report reports/uicheck.md (build first)

@@ -92,6 +92,7 @@ interface Conn {
   openedAt: number;
   chat: Bucket; draw: Bucket; gen: Bucket;
   drops: number;
+  lastReject: number;
 }
 
 const msgs = {
@@ -164,12 +165,19 @@ export class RoomCore {
       for (const p of data.players) {
         if (!this.pidConn.has(p.id) && p.offlineSince === null) { p.offlineSince = now; data.timers['seat:' + p.id] = now + RECONNECT_GRACE_MS; }
       }
+      // the host/drawer/room-expiry deadlines for sockets that did not survive (deploy, eviction)
+      for (const p of data.players) {
+        if (this.pidConn.has(p.id)) continue;
+        if (p.id === data.hostId) data.timers[HOSTGONE] ??= now + HOST_GRACE_MS;
+        if (p.id === data.game.drawerId && !data.paused && (data.phase === 'choosing' || data.phase === 'drawing')) data.timers[DRAWERGONE] ??= now + DRAWER_GRACE_MS;
+      }
+      if (this.pidConn.size === 0) data.timers[EXPIRE] ??= now + ROOM_EXPIRE_MS;
       this.afterEvent();
     }
   }
 
   private newConn(now: number, pid: string | null = null): Conn {
-    return { pid, openedAt: now, chat: new Bucket(RATE.chat.capacity, RATE.chat.perSec, now), draw: new Bucket(RATE.draw.capacity, RATE.draw.perSec, now), gen: new Bucket(RATE.general.capacity, RATE.general.perSec, now), drops: 0 };
+    return { pid, openedAt: now, chat: new Bucket(RATE.chat.capacity, RATE.chat.perSec, now), draw: new Bucket(RATE.draw.capacity, RATE.draw.perSec, now), gen: new Bucket(RATE.general.capacity, RATE.general.perSec, now), drops: 0, lastReject: 0 };
   }
 
   // ------------------------------------------------------------------ socket entry points
@@ -409,6 +417,7 @@ export class RoomCore {
     // hostOnly: the drawer role follows the host; current turn (if the old host drew) is handled by drawerGone
     void now;
     this.touch(true);
+    this.io.persist('now'); // else a hibernation replays HOSTGONE (duplicate announcement)
   }
 
   private connectedCount(): number { return this.pidConn.size; }
@@ -444,7 +453,11 @@ export class RoomCore {
       return this.chatTeam(p, text);
     }
     if (d.paused) { // no guessing while paused; plain chat must not leak the word
-      if (leaksWord(text, word)) return this.notice(cid, 'noWord');
+      if (leaksWord(text, word)) { // no "noWord" notice (it would confirm a close guess): treat like a near-miss
+        this.sendRaw(cid, { t: 'chat', ch: 'self', from: p.id, name: p.name, text });
+        this.toTeam(p, { t: 'chat', ch: 'team', from: p.id, name: p.name, text, code: 'close' });
+        return;
+      }
       if (p.muted) return this.notice(cid, 'muted');
       return this.chatAll(p, text);
     }
@@ -504,8 +517,17 @@ export class RoomCore {
 
   private onDraw(p: PlayerRec, conn: Conn, m: Extract<ClientMsg, { t: 'draw' }>, now: number): void {
     const d = this.data!;
+    if (!conn.draw.take(now)) { // every draw frame is rate limited, whoever sends it
+      if (++conn.drops > 800) { this.io.close(this.pidConn.get(p.id)!, 1008, 'rate'); return; }
+      // the drawer already rendered this batch locally: tell it, or its canvas silently diverges from the server's
+      if (d.phase === 'drawing' && !d.paused && d.game.drawerId === p.id && now - conn.lastReject > 300) {
+        conn.lastReject = now;
+        this.sendRaw(this.pidConn.get(p.id)!, { t: 'drawReject', code: 'rate', n: this.ops.length });
+        this.sendCanvas(p.id);
+      }
+      return;
+    }
     if (d.phase !== 'drawing' || d.paused || d.game.drawerId !== p.id) return;
-    if (!conn.draw.take(now)) { if (++conn.drops > 800) this.io.close(this.pidConn.get(p.id)!, 1008, 'rate'); return; }
     const n0 = this.ops.length;
     const err = this.ops.tryAppend(m.ops);
     if (err) {
@@ -646,6 +668,7 @@ export class RoomCore {
       d.game.hintTimes = d.game.hintTimes.map((t) => t + shift);
       d.paused = null;
       this.sys('Trò chơi tiếp tục', 'resume');
+      this.afterResume(now);
     }
     this.touch(true);
     this.io.persist('now');
@@ -674,6 +697,13 @@ export class RoomCore {
     for (const [k, rem] of Object.entries(d.paused.remaining)) d.timers[k] = now + rem;
     d.game.hintTimes = d.game.hintTimes.map((t) => t + shift);
     d.paused = null;
+    this.afterResume(now);
+  }
+
+  /** After a pause: an absent drawer starts its grace period, and a turn everybody present already solved ends. */
+  private afterResume(now: number): void {
+    this.armDrawerGone(now);
+    this.checkAllGuessed();
   }
 
   // ------------------------------------------------------------------ turn engine
@@ -716,9 +746,13 @@ export class RoomCore {
     const d = this.data!, g = d.game;
     // need a drawer and at least one guesser present
     const present = d.players.filter((p) => this.pidConn.has(p.id));
-    if (present.length < MIN_PLAYERS_TO_START || this.shouldEndGame()) return this.endGame();
+    // a short drop (locked phone, tunnel) must not end the game: wait in the reveal while people are within their grace
+    const hold = (): void => { d.timers[PHASE] = this.io.now() + 2000; };
+    const canWait = d.players.length >= MIN_PLAYERS_TO_START && this.io.now() - (d.phaseStartedAt ?? 0) < HOST_GRACE_MS + 5000;
+    if (this.shouldEndGame()) return this.endGame();
+    if (present.length < MIN_PLAYERS_TO_START) return canWait ? hold() : this.endGame();
     const drawer = this.pickDrawer();
-    if (!drawer) return this.endGame();
+    if (!drawer) return canWait ? hold() : this.endGame();
     g.turnNo++;
     g.drawerId = drawer.id; g.word = null; g.revealed = []; g.hintTimes = []; g.hintsGiven = 0; g.hintsTotal = 0; g.guessOrder = [];
     for (const x of d.players) { x.guessedAt = null; x.delta = 0; }
@@ -776,11 +810,19 @@ export class RoomCore {
     d.phase = 'drawing';
     d.phaseStartedAt = now;
     d.timers[PHASE] = now + total;
-    delete d.timers[DRAWERGONE];
+    if (this.pidConn.has(g.drawerId ?? '')) delete d.timers[DRAWERGONE]; // an absent drawer keeps the deadline set when it dropped
+    this.armDrawerGone(now);
     if (g.hintTimes.length) d.timers[HINT] = g.hintTimes[0]; else delete d.timers[HINT];
     this.sendSecret(g.drawerId!);
     this.touch(true);
     this.io.persist('now');
+  }
+
+  /** An absent drawer must not keep a turn: (re)arm the grace timer whenever a turn (re)starts or resumes. */
+  private armDrawerGone(now: number): void {
+    const d = this.data!, id = d.game.drawerId;
+    if (!id || d.paused || (d.phase !== 'choosing' && d.phase !== 'drawing')) return;
+    if (!this.pidConn.has(id)) d.timers[DRAWERGONE] ??= now + DRAWER_GRACE_MS;
   }
 
   private doHint(): void {
@@ -792,6 +834,7 @@ export class RoomCore {
     g.hintTimes.shift();
     if (g.hintTimes.length) d.timers[HINT] = g.hintTimes[0]; else delete d.timers[HINT];
     this.touch(true);
+    this.io.persist('now'); // else a hibernation replays the hint with another random letter
   }
 
   /** True if the turn ended because everyone present has guessed. */
@@ -991,6 +1034,9 @@ export class RoomCore {
     const next = this.nextDeadline();
     if (next !== this.lastAlarm) { this.lastAlarm = next; this.io.setAlarm(next); }
   }
+
+  /** The adapter calls this when writing the alarm failed, so the next event writes it again. */
+  invalidateAlarm(): void { this.lastAlarm = undefined; }
 
   private sendRaw(cid: string, m: ServerMsg): void { this.io.send(cid, JSON.stringify(m)); }
 

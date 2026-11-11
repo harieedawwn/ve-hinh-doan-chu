@@ -37,7 +37,7 @@ Status legend: [x] done · [ ] todo
 - Possible polish: avatar picker screen, chat in the lobby, haptics tuning, landscape-phone toolbar scrolls when the screen is under ~420 px high.
 
 ## Stage 3 — Review and deploy
-- [ ] Code review (`/code-review`, security review of the WebSocket surface: validation, rate limits, origin check)
+- [x] Code review (Opus read-only review, 10 findings fixed with regression tests, SPEC §11); `/version` + quota screen (SPEC §1)
 - [ ] Connect the repo to Cloudflare Workers Builds (build `npm run build`, deploy `npx wrangler deploy`), first deploy, check the DO migration
 - [ ] Re-run load test and e2e against the deployed URL (`TARGET_URL=…`); real phones on mobile data (latency, reconnect, Zalo browser)
 - [ ] Watch the Cloudflare dashboard for requests / duration / rows after a real 42-player session; compare with SPEC §1; tune batch interval/persist debounce if needed

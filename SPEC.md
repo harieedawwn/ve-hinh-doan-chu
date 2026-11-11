@@ -45,6 +45,9 @@ A turn cycle ≈ 15 s choosing + 80 s drawing + 7 s reveal ≈ 100 s → 36 turn
 - **Rows written** (estimate, not measured): ≈ 50–80 rows/turn → ≈ 3,000/hour → ≈ 33 hours per day.
 - Result: **≈ 20 hours/day of full 42-player play** (e.g. ten 2-hour class sessions), shared across all rooms; smaller rooms use proportionally less. A typical day (a few hours) uses < 15 % of the quota. Levers if ever needed: batch interval 40 → 60 ms (−33 % requests), longer persist debounce.
 - If a limit is hit, Cloudflare returns errors (rooms stop accepting) — it never bills. The UI shows "Máy chủ đang bận" with a retry button after 3 failed connection attempts before the first welcome (stage 2, done).
+- **Daily reset: 00:00 UTC = 07:00 Vietnam time** (UTC+7, no daylight saving). Re-checked 2026-11-11: Workers "resetting at midnight UTC" ([limits](https://developers.cloudflare.com/workers/platform/limits/)), Durable Objects "Daily free limits reset at 00:00 UTC" ([pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)). A path matched by `run_worker_first` (`/ws/*`) answers **429** when the Workers quota is gone (Error 1027); when the Durable Object quota is gone `stub.fetch` throws and the Worker answers **503**.
+- **Quota screen (stage 3)**: after 3 consecutive failed attempts (before or after the first welcome) the client calls `GET /ws/_probe` (Worker + one DO touch; `_probe` is not a valid room code). Any non-2xx answer ⇒ screen "Hết lượt chơi hôm nay" with "Lượt mới có lúc 7 giờ sáng (giờ Việt Nam)" and a "Thử lại" button; no answer at all ⇒ the phone is offline and the normal reconnect banner stays. Code: `client/src/health.ts`, `server/index.ts`.
+- **`GET /version`**: static asset written by the build (`{sha, id, builtAt}`, `Cache-Control: no-store`; `id` = 7-char commit + UTC minute). `WORKERS_CI_COMMIT_SHA` is used when set, else `git rev-parse HEAD`. Free (not a Worker request) and unaffected by the quota. The settings sheet shows `Bản <id>`.
 
 ---------------------------------------------------------------------------------------------------
 
@@ -259,3 +262,19 @@ Tools bút / tẩy / sơn / hút màu, hoàn tác, làm lại, xóa hết (confi
 | B7 | `npm test` (78), `npm run typecheck`, `npm run build`, `npm run words:check` pass | run at the end of stage 2 |
 
 Known limits: iOS keyboard behaviour, Wake Lock, vibration, Web Share and the Zalo in-app browser are implemented defensively but only verifiable on real devices (stage 3). Chat shows the last 60 lines only. The gallery contains the drawings this client saw (a late joiner misses earlier turns).
+
+
+---------------------------------------------------------------------------------------------------
+
+## 11. Stage 3 code review (read-only Opus review, all 10 findings confirmed and fixed, regression tests in `tests/review.test.ts`)
+
+1. A drawer who dropped during `choosing` kept the whole drawing turn (the drawer grace was deleted by `startDrawing`; also not re-armed after pause/resume) → grace is kept/re-armed.
+2. A short drop at the end of a reveal (or a 2-player room) ended the game → the reveal is held in 2 s steps for up to `HOST_GRACE + 5 s` while ≥ 2 players still hold a seat.
+3. Hints and host transfer fired by the alarm were not persisted (a hibernation replayed the hint with another letter) → `persist('now')`.
+4. After a restart/eviction host, drawer and room-expiry deadlines were not re-armed → armed in `restore`.
+5. Non-drawer `draw` frames bypassed every rate limit → the draw bucket is taken first; 800 drops close the socket with 1008.
+6. A rate-limited drawer batch was silently dropped (drawer canvas diverged) → `drawReject {code:'rate'}` + fresh `canvas` (at most one per 300 ms).
+7. Resume did not check "everybody guessed" → checked on resume.
+8. While paused, `noWord` confirmed near-miss guesses → handled like a near-miss (author and team only, no notice).
+9. Client backoff reset on socket open instead of `welcome` → reset on `welcome`.
+10. A failed `setAlarm` was never retried → `RoomCore.invalidateAlarm()` called by the adapter.

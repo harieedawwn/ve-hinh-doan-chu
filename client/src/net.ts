@@ -123,7 +123,6 @@ export class GameClient {
     const ws = new Impl(this.o.url);
     this.ws = ws;
     ws.onopen = () => {
-      this.attempt = 0;
       const hello: ClientMsg = { t: 'hello', name: this.o.name, avatar: this.o.avatar ?? 0, token: this.token ?? undefined, create: this.o.create && !this.token ? true : undefined, v: 1 };
       this.send(hello);
     };
@@ -175,6 +174,7 @@ export class GameClient {
         this.you = m.you; this.token = m.token; this.room = m.room; this.secret = m.secret ?? null;
         try { this.o.storage?.setItem('vhdc:' + this.o.code, m.token); } catch { /* ignore */ }
         this.offset = m.room.now - this.nowMs();
+        this.attempt = 0; // only a welcome proves the server accepted us (an accept-then-close loop must keep backing off)
         this.setStatus('open');
         this.startPings();
         break;

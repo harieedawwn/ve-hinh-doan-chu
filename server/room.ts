@@ -130,7 +130,7 @@ export class Room extends DurableObject<Env> implements Io {
 
   setAlarm(at: number | null): void {
     const p = at === null ? this.ctx.storage.deleteAlarm() : this.ctx.storage.setAlarm(Math.max(at, Date.now() + 1));
-    p.catch(() => { /* retried by the next state change */ });
+    p.catch(() => { this.core.invalidateAlarm(); /* the next event writes it again */ });
   }
 
   requestFlush(delayMs: number): void {
