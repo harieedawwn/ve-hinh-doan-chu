@@ -77,6 +77,7 @@ export class Harness implements Io {
   persist(kind: string): void { this.persists.push(kind); }
   requestFlush(ms: number): void { this.flushReq = this.t + ms; }
   wipe(): void { this.wiped++; }
+  bind(): void { /* attachments are a Durable Object concern */ }
 
   connect(name = 'Khách', opts: { create?: boolean; token?: string; avatar?: number } = {}): TClient {
     const cid = 'c' + ++this.n;

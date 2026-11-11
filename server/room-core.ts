@@ -32,6 +32,8 @@ export interface Io {
   requestFlush(delayMs: number): void;
   /** Delete all stored data of the room. */
   wipe(): void;
+  /** A socket was bound to (or released from) a player: store it in the socket attachment. */
+  bind(cid: string, pid: string | null): void;
 }
 
 export interface PlayerRec {
@@ -135,7 +137,7 @@ export class RoomCore {
   private lastAlarm: number | null | undefined = undefined;
   private memTimers = new Map<string, number>(); // non-persisted deadlines: hello:<cid>
   private io: Io;
-  readonly code: string;
+  code: string;
 
   constructor(io: Io, code: string) { this.io = io; this.code = code; }
 
@@ -283,12 +285,14 @@ export class RoomCore {
       if (old && old !== cid) {
         this.sendRaw(old, { t: 'error', code: 'replaced', msg: msgs.replaced });
         this.conns.get(old)!.pid = null;
+        this.io.bind(old, null);
         this.io.close(old, 4001, 'replaced');
       }
       if (m.name) p.name = this.uniqueName(d, m.name, p.id);
       p.avatar = m.avatar;
     }
     conn.pid = p.id;
+    this.io.bind(cid, p.id);
     this.memTimers.delete('hello:' + cid);
     this.pidConn.set(p.id, cid);
     p.offlineSince = null;
@@ -376,6 +380,7 @@ export class RoomCore {
     if (cid) {
       const c = this.conns.get(cid);
       if (c) c.pid = null;
+      this.io.bind(cid, null);
       if (why === 'kick') { this.sendRaw(cid, { t: 'kicked', msg: msgs.kicked }); }
       this.io.close(cid, why === 'kick' ? 4002 : 1000, why);
     }
