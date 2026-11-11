@@ -1,3 +1,23 @@
 <!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vẽ hình đoán chữ</title></head>
-<body><div id="app"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vẽ hình đoán chữ</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { margin: 0; padding: 8px; max-width: 980px; margin-inline: auto; }
+  h1 { font-size: 18px; margin: 4px 0 8px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+  button, input, select, textarea { font: inherit; padding: 6px 10px; }
+  #cv { width: 100%; max-width: 900px; aspect-ratio: 4 / 3; background: #fff; border: 2px solid #888; touch-action: none; display: block; }
+  .players span { display: inline-block; margin: 2px 6px 2px 0; padding: 2px 8px; border-radius: 10px; background: #8883; }
+  .players .off { opacity: .45 } .players .ok { background: #3a35 } .players .dr { outline: 2px solid #e90 }
+  #chat { height: 140px; overflow: auto; border: 1px solid #8886; padding: 4px; font-size: 14px; }
+  .sys { color: #888 } .team { color: #07a } .self { color: #a50 }
+  pre { max-height: 160px; overflow: auto; font-size: 11px; background: #8881; padding: 4px; }
+  .word { font-size: 22px; letter-spacing: 3px; font-weight: 700; }
+</style>
+</head>
+<body><div id="app"></div><script type="module" src="/src/main.tsx"></script></body>
+</html>
