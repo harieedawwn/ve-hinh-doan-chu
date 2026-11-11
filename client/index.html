@@ -1,23 +1,38 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-theme="light">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<script>
+  // Zalo's WebView calls its own bridge on every page; stub it so its injected code never throws into ours.
+  try { if (!window.zaloJSV2) window.zaloJSV2 = { zalo_h5_event_handler: function () {}, getCookieFallback: function () { return ''; } }; } catch (e) {}
+  // apply the saved theme before first paint (no flash)
+  try { var p = JSON.parse(localStorage.getItem('vhdc:prefs') || '{}'); var t = p.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vẽ hình đoán chữ</title>
-<style>
-  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-  body { margin: 0; padding: 8px; max-width: 980px; margin-inline: auto; }
-  h1 { font-size: 18px; margin: 4px 0 8px; }
-  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
-  button, input, select, textarea { font: inherit; padding: 6px 10px; }
-  #cv { width: 100%; max-width: 900px; aspect-ratio: 4 / 3; background: #fff; border: 2px solid #888; touch-action: none; display: block; }
-  .players span { display: inline-block; margin: 2px 6px 2px 0; padding: 2px 8px; border-radius: 10px; background: #8883; }
-  .players .off { opacity: .45 } .players .ok { background: #3a35 } .players .dr { outline: 2px solid #e90 }
-  #chat { height: 140px; overflow: auto; border: 1px solid #8886; padding: 4px; font-size: 14px; }
-  .sys { color: #888 } .team { color: #07a } .self { color: #a50 }
-  pre { max-height: 160px; overflow: auto; font-size: 11px; background: #8881; padding: 4px; }
-  .word { font-size: 22px; letter-spacing: 3px; font-weight: 700; }
-</style>
+<meta name="description" content="Trò chơi vẽ hình đoán chữ trực tuyến cho cả lớp, cả nhóm. Tạo phòng, gửi liên kết qua Zalo và chơi ngay.">
+<meta name="theme-color" content="#f5efe3">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vẽ hình đoán chữ">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="vi_VN">
+<meta property="og:site_name" content="Vẽ hình đoán chữ">
+<meta property="og:title" content="Vẽ hình đoán chữ">
+<meta property="og:description" content="Vẽ, đoán, cười thả ga cùng cả lớp. Tạo phòng và gửi liên kết cho bạn bè.">
+<meta property="og:image" content="/og-image.png?v=1">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Vẽ hình đoán chữ">
+<meta name="twitter:card" content="summary_large_image">
 </head>
-<body><div id="app"></div><script type="module" src="/src/main.tsx"></script></body>
+<body>
+<div id="app"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
 </html>

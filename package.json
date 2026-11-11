@@ -14,7 +14,9 @@
     "test:watch": "vitest",
     "words:check": "node --experimental-strip-types scripts/check-words.ts",
     "loadtest": "node --experimental-strip-types scripts/loadtest.ts",
-    "e2e": "node --experimental-strip-types scripts/e2e-canvas.ts"
+    "e2e": "node --experimental-strip-types scripts/e2e-canvas.ts",
+    "uicheck": "node --experimental-strip-types scripts/uicheck.ts",
+    "assets": "node --experimental-strip-types scripts/make-assets.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261110.1",
@@ -29,6 +31,10 @@
     "ws": "^8.22.2"
   },
   "dependencies": {
-    "preact": "^11.2.0"
+    "@fontsource/baloo-2": "^5.3.0",
+    "@fontsource/be-vietnam-pro": "^5.3.0",
+    "lucide": "^1.72.0",
+    "preact": "^11.2.0",
+    "qrcode-generator": "^2.0.4"
   }
 }

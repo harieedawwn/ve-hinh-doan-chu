@@ -203,7 +203,8 @@ export class GameClient {
         this.fatal = { code: 'kicked', msg: m.msg }; this.emit('fatal', 'kicked', m.msg);
         break;
     }
-    this.emit('change');
+    // draw relays / pongs / syncs are high-rate and never change anything the UI renders
+    if (m.t !== 'draw' && m.t !== 'pong' && m.t !== 'sync' && m.t !== 'canvas') this.emit('change');
   }
 
   private onRelay(n: number, ops: Op[], span: number): void {
