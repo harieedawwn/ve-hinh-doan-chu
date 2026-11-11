@@ -1,10 +1,10 @@
 # SPEC — Vẽ hình đoán chữ
 
 Online multiplayer draw-and-guess game, Vietnamese UI, up to 50 players per room (default 42), mostly phones opened from Zalo links.
-This document is the contract between server, shared code and the (stage 2) UI: everything the UI needs is here.
+This document is the contract between server, shared code and the UI: everything the UI needs is here.
 
 - Stack: Cloudflare Workers + one SQLite-backed Durable Object per room (WebSocket Hibernation API), static client served by the same Worker (Workers static assets, SPA fallback), TypeScript, Vite + Preact, Vitest.
-- Code map: `shared/` (constants, protocol, text utils, word packs, canvas engine) · `server/` (`room-core.ts` pure game logic, `room.ts` Durable Object adapter, `index.ts` Worker) · `client/src/net.ts` (connection/canvas sync library, UI independent) · `client/src/main.tsx` (stage-1 debug page only) · `scripts/` (word checker, load test, e2e) · `tests/`.
+- Code map: `shared/` (constants, protocol, text utils, word packs, canvas engine) · `server/` (`room-core.ts` pure game logic, `room.ts` Durable Object adapter, `index.ts` Worker) · `client/src/net.ts` (connection/canvas sync library, UI independent) · `client/src/` (stage-2 UI, see §10) · `scripts/` (word checker, load test, uicheck, e2e, asset generator) · `tests/`.
 - Language rule: code and comments in English, every player-facing string in Vietnamese (server `msg`/chat text is already Vietnamese).
 
 ---------------------------------------------------------------------------------------------------
@@ -44,7 +44,7 @@ A turn cycle ≈ 15 s choosing + 80 s drawing + 7 s reveal ≈ 100 s → 36 turn
 - **Duration**: a busy DO never hibernates: 0.125 GB × 3,600 s = 450 GB-s/hour → 13,000 / 450 ≈ **29 game-hours per day**.
 - **Rows written** (estimate, not measured): ≈ 50–80 rows/turn → ≈ 3,000/hour → ≈ 33 hours per day.
 - Result: **≈ 20 hours/day of full 42-player play** (e.g. ten 2-hour class sessions), shared across all rooms; smaller rooms use proportionally less. A typical day (a few hours) uses < 15 % of the quota. Levers if ever needed: batch interval 40 → 60 ms (−33 % requests), longer persist debounce.
-- If a limit is hit, Cloudflare returns errors (rooms stop accepting) — it never bills. The UI should show a friendly "Máy chủ đang quá tải, thử lại sau" on connection failure (stage 2).
+- If a limit is hit, Cloudflare returns errors (rooms stop accepting) — it never bills. The UI shows "Máy chủ đang bận" with a retry button after 3 failed connection attempts before the first welcome (stage 2, done).
 
 ---------------------------------------------------------------------------------------------------
 
@@ -179,7 +179,7 @@ Types: `shared/protocol.ts`. Every client frame is validated (`parseClientMessag
 
 ---------------------------------------------------------------------------------------------------
 
-## 7. Client library (`client/src/net.ts`) for the stage-2 UI
+## 7. Client library (`client/src/net.ts`)
 
 ```ts
 const c = new GameClient({ url: `wss://${location.host}/ws/${code}`, code, name, avatar, create, storage: localStorage });
@@ -190,7 +190,7 @@ c.chat        // ChatLine[] (all channels) c.closeHint // ++ on "Gần đúng"
 c.serverNow() // use for countdowns        c.isDrawer
 c.send({t:'chat', text}); c.draw([{k:'b',…},{k:'m',…}]);
 ```
-Reconnects automatically with backoff (0.4 s → 8 s) using the stored token; `fatal` is set for `error`/`kicked` and stops reconnecting. Gaps in `draw.n`, bad snapshots and sync mismatches trigger `resync` automatically.
+Reconnects automatically with backoff (0.4 s → 8 s) using the stored token; `fatal` is set for `error`/`kicked` and stops reconnecting. Gaps in `draw.n`, bad snapshots and sync mismatches trigger `resync` automatically. `change` is **not** emitted for `draw`, `pong`, `sync` or `canvas` messages, so the UI never re-renders per stroke.
 UI notes: show the countdown from `phaseEndsAt`; do not display `reveal.word` before `phase === 'reveal'`; render `mask` with letter spacing; `players[].guessed` for check marks; chat channels `team`/`self` should look distinct; show "Gần đúng" briefly on `closeHint` change; on connection failure show a friendly retry message; keep every `m` op small.
 
 ---------------------------------------------------------------------------------------------------
@@ -219,3 +219,43 @@ UI notes: show the countdown from `phaseEndsAt`; do not display `reveal.word` be
 - `state` is a full snapshot (≈ 6 KB at 42 players) throttled to 80 ms; a diff protocol is the next bandwidth lever if needed (average 8 KB/s/client now).
 - Deploying new code evicts running DOs: an in-progress turn may lose up to ~5 s of strokes (the persisted op log lags by the 5 s debounce); players reconnect automatically.
 - Pause/skip/end are allowed for the host in every mode (superset of the MC requirement).
+
+
+---------------------------------------------------------------------------------------------------
+
+## 10. Client UI (stage 2)
+
+Preact + plain CSS, no router: **routing is by path only** (`/` home, `/r/CODE` join). Every query string / hash that a host app appends is removed at start with `history.replaceState`. Static Open Graph tags + manifest (`display: standalone`) live in `client/index.html`; no service worker.
+
+### Code map (`client/src/`)
+`main.tsx` boot · `app.tsx` screen switch, fullscreen question, reconnect banner, error screens · `session.ts` owns the `GameClient`, the drawing surface, the gallery and the sound/vibration cues; `useSession()` re-renders through one rAF-coalesced notification · `platform.ts` safe storage (memory fallback), env detection, visualViewport vars, fullscreen, Wake Lock, vibrate, share/copy · `prefs.ts` player settings (`localStorage['vhdc:prefs']`) · `sound.ts` (+ `vendor/sfx.js`, loaded lazily on the first tap) · `draw/surface.ts` canvas + engine + pointer input + shortcuts, **outside Preact** · `draw/toolbar.tsx` tools, sizes, 24 presets + last 6 used, HSV picker · `screens/{home,lobby,game,podium}.tsx` · `panels.tsx` scoreboard + chat · `ui.tsx` primitives · `icons.tsx` lucide (tree-shaken) + 24 avatars (6 animals x 4 accents).
+
+### Screens
+Home (name remembered, avatar tap-to-change, "Tạo phòng", 5-box code input that accepts a pasted code or a pasted link) · join-from-link (name only; a stored session token rejoins silently) · lobby (player grid, host settings in 5 collapsible groups covering every key of §3, share: Web Share API when present, copy link, local QR via `qrcode-generator`) · game: choosing overlay, drawing, reveal overlay (word + top gains) · podium (top 3 + list) · gallery (every drawing this client saw at turn end, PNG save). Player settings sheet: âm thanh, rung (hidden without `navigator.vibrate`), toàn màn hình, thuận tay trái, giao diện tối; host sees "Kết thúc ván" (confirm), everyone "Rời phòng".
+
+### Drawing
+Tools bút / tẩy / sơn / hút màu, hoàn tác, làm lại, xóa hết (confirm sheet), 5 sizes (4/10/20/36/60 logical px), 24 presets + last 6 used, custom colour = HSV square + hue slider + hex field. Pointer Events with `getCoalescedEvents`, exponential smoothing (0.55) + 2 px minimum step, one `m` op per animation frame, chunks of <= 64 points; `touch-action: none`, `touchstart/move` prevented on the canvas, `overscroll-behavior: none` on the page, no selection. Shortcuts: B E F I, Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z, `[` `]`. Layout: `html.is-wide` (visual width >= 600 and width/height >= 1.1) = toolbar | canvas | side panel, mirrored by "thuận tay trái"; otherwise a column: bar, word, canvas 4:3 (capped at 56 % of the visible height), toolbar, scoreboard (drawer, top 3, you -> "Tất cả" sheet), chat (last 60 lines), guess input. The app box follows `visualViewport` (`--vv-h`, `--vv-top`) so the iOS keyboard shrinks the chat, never moves the canvas; `html.is-kb` hides the bar and scoreboard while typing.
+
+### Zalo / in-app browser notes (Haiku research, sources; most Zalo facts could NOT be verified)
+- UA: no confirmed Zalo token; Android WebViews often contain `wv` ([51degrees](https://51degrees.com/blog/webview-detection)). We match `/Zalo/` and treat it as in-app; everything else is feature-tested, not UA-tested.
+- Query params: `zarsrc` not found in any source; `utm_*` generic. -> strip **all** query/hash.
+- Fullscreen: Zalo unverified; API needs user activation and `document.fullscreenEnabled` ([MDN](https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API)); iPhone has none (from memory). -> feature-test, verify `fullscreenElement` 250 ms after the request, else show the alternative (open in browser, add to home screen).
+- Storage: Android in-app browsers can disable DOM storage ([source](https://victorleungtw.github.io/2020/09/07/caveat-on-android-in-app-browser)); logins are not shared with the system browser ([Master](https://blog.master.dev/the-pitfalls-of-in-app-browsers/)). -> every access in try/catch + memory fallback; the session token is lost across browsers.
+- Viewport/keyboard: no sources. -> `visualViewport`, `100dvh` fallback, safe-area insets.
+- Link previews: Zalo caches them; re-share or add `?v=2` after edits ([ChungDoi](https://chungdoi.com/en/help/articles/fix-share-preview)). -> static OG tags, `og-image.png?v=1` (bump on change).
+- `navigator.share` needs HTTPS + a click ([MDN](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share)); blob downloads often fail in in-app browsers ([Master](https://blog.master.dev/the-pitfalls-of-in-app-browsers/)). -> share button only when present; gallery save tries file share, then `<a download>`, and the lightbox says "Nhấn giữ ảnh để lưu" in-app.
+- Zalo injects a bridge (`zaloJSV2`); `index.html` stubs it before anything else.
+- To do on real devices (stage 3): log `navigator.userAgent` and `location.href` from a shared link on iOS and Android Zalo.
+
+### Acceptance list (stage 2)
+| # | Item | Evidence |
+|---|---|---|
+| B1 | Real client with all screens in the brief, sketchbook look (paper `#F5EFE3`, ink `#1E1B18`, flat accents, solid offset shadows, dark theme through CSS variables, no gradients/glow/blur/emoji except the colour picker's own hue/value ramps), Baloo 2 + Be Vietnam Pro (vietnamese subset) from `@fontsource` | `client/src/`, `reports/screens/*.png`; glyph check `ẵ ữ ộ Đ ặ ừ` renders from the web fonts, not the fallback (uicheck `fonts`) |
+| B2 | Title on two lines, original SVG icon (3 colours + ink), `favicon.svg`, maskable PNG 192/512, apple-touch-icon 180, og-image 1200x630 | `client/public/`, regenerate with `npm run assets`; checked at 16 px |
+| B3 | uicheck: home, lobby (22 players, long names), drawing, podium + choose/palette/settings at 360x740, 390x844, 768x1024 (touch) and 1440x900, plus 768x1024 dark: no horizontal/vertical page overflow, no controls outside the viewport, overlapping or covered, no text overflowing its box | `npm run uicheck` -> `reports/uicheck.md`, `reports/screens/` |
+| B4 | Behaviour: first entry asks "Chơi toàn màn hình?" and remembers it; iPhone and Android-Zalo UAs get the alternative instead of a silent failure; code boxes accept pasted code and link; query params stripped; refused join shows a Vietnamese message; initial JS < 150 KB gzip | uicheck "behaviour" lines (initial JS 36.7 KB gzip; sfx 6.6 KB and QR 7.3 KB load lazily) |
+| B5 | 3 real pages play a full game per drawer mode to the podium: draw, fill, custom colour, undo, redo, clear + undo, correct / accent-less / near-miss / wrong guesses, reload-reconnect (same seat, same canvas), identical op + pixel hashes, reveal word, gallery (1 PNG per turn) and PNG download | `npm run e2e` -> `reports/e2e.md` |
+| B6 | 42-bot load test with one real Chromium page in the room: hashes equal, frame times from a rAF probe | `reports/loadtest.md`: 43/43 hashes equal (2,936 ops, browser page included), 0 gaps, 5/5 reconnects; page rAF probe 3,596 frames, 60.0 fps, p50 16.7 / p95 16.7 / p99 16.8 ms, max 50 ms, 2 frames > 20 ms, 0 > 50 ms, 1 long task (headless, software rendering, shared CPU) |
+| B7 | `npm test` (78), `npm run typecheck`, `npm run build`, `npm run words:check` pass | run at the end of stage 2 |
+
+Known limits: iOS keyboard behaviour, Wake Lock, vibration, Web Share and the Zalo in-app browser are implemented defensively but only verifiable on real devices (stage 3). Chat shows the last 60 lines only. The gallery contains the drawings this client saw (a late joiner misses earlier turns).

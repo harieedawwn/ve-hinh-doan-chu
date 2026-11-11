@@ -7,9 +7,12 @@ import WebSocket from 'ws';
 import { GameClient } from '../client/src/net.ts';
 import { ROOM_CODE_ALPHABET } from '../shared/constants.ts';
 import type { Op } from '../shared/canvas/ops.ts';
+import type { Browser, Page } from 'playwright-core';
 import { ensureServer } from './lib/dev-server.ts';
+import { launch, newPlayer, waitFor as waitSel } from './lib/ui-helpers.ts';
 
 const BOTS = Number(process.env.BOTS ?? 42);
+const WITH_PAGE = process.env.PAGE !== '0'; // one real Chromium page (phone viewport) joins the room and probes frame times
 const DRAW_SECONDS = Number(process.env.DRAW_SECONDS ?? 60);
 const DROPPERS = 5;
 const HOLDOUTS = 4; // never guess: keeps the turn running to the full time limit
@@ -83,6 +86,7 @@ async function main(): Promise<void> {
   const server = await ensureServer();
   console.log(`server ${server.url}, room ${code}, ${BOTS} bots, ${DRAW_SECONDS}s turn`);
   const bots: Bot[] = [];
+  let browser: Browser | null = null, page: Page | null = null;
   const failures: string[] = [];
   const check = (ok: boolean, msg: string): void => { if (!ok) failures.push(msg); console.log(ok ? 'PASS' : 'FAIL', msg); };
   try {
@@ -105,6 +109,15 @@ async function main(): Promise<void> {
     // ---------------- start the game: host draws ("Chỉ host vẽ"), one turn
     host.send({ t: 'settings', patch: { mode: 'hostOnly', endBy: 'turns', turns: 1, drawTime: DRAW_SECONDS, hints: 2, wordChoices: 3, maxPlayers: 50 } });
     await sleep(200);
+    if (WITH_PAGE) {
+      browser = await launch();
+      const pl = await newPlayer(browser, { name: 'Trình duyệt', w: 390, h: 844, touch: true, dsf: 2 });
+      page = pl.page;
+      await page.goto(`${server.url}/r/${code}`);
+      await page.click('button:has-text("Vào phòng")');
+      await waitSel(page, '.lobby');
+      await waitFor(() => host.room?.players.length === BOTS + 1, 5_000, 'page joined');
+    }
     host.send({ t: 'start' });
     await waitFor(() => host.secret?.choices !== undefined, 5_000, 'word choices');
     host.send({ t: 'pick', i: 0 });
@@ -115,6 +128,17 @@ async function main(): Promise<void> {
     for (const b of bots) { b.rxAtStart = b.c.stats.rxBytes; b.txAtStart = b.c.stats.txBytes; }
     const sendsBefore = sendTimes.length;
     const stopDrawing = startDrawing(host, t0 + DRAW_SECONDS * 1000 - 800);
+    if (page) {
+      await waitSel(page, '.game');
+      await page.evaluate(() => {
+        const w = window as unknown as { __frames: number[]; __long: number[]; __probe: boolean };
+        w.__frames = []; w.__long = []; w.__probe = true;
+        let last = performance.now();
+        const loop = (t: number): void => { if (!w.__probe) return; w.__frames.push(t - last); last = t; requestAnimationFrame(loop); };
+        requestAnimationFrame(loop);
+        try { new PerformanceObserver((l) => { for (const e of l.getEntries()) w.__long.push(e.duration); }).observe({ entryTypes: ['longtask'] }); } catch { /* unsupported */ }
+      });
+    }
 
     // ---------------- chatters / guessers / droppers
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -143,6 +167,14 @@ async function main(): Promise<void> {
     await waitFor(() => host.room?.phase === 'reveal' || syncMsg !== null, (DRAW_SECONDS + 15) * 1000, 'turn end');
     const t1 = performance.now();
     stopDrawing(); timers.forEach(clearTimeout);
+    let fr: { frames: number[]; long: number[]; hash: string; px: string; n: number; secret: boolean } | null = null;
+    if (page) {
+      fr = await page.evaluate(async () => {
+        const w = window as unknown as { __frames: number[]; __long: number[]; __probe: boolean; __vhdc: { client: { log: { hash: string; length: number } }; pixelHash(): Promise<string> } };
+        w.__probe = false;
+        return { frames: w.__frames.slice(1), long: w.__long, hash: w.__vhdc.client.log.hash, px: await w.__vhdc.pixelHash(), n: w.__vhdc.client.log.length, secret: false };
+      });
+    }
     const sendsAfter = sendTimes.length;
     await sleep(2000); // let in-flight frames, reconnect snapshots and the end-of-turn sync settle
     const reason = host.room?.reveal?.reason;
@@ -166,9 +198,14 @@ async function main(): Promise<void> {
     const lateBot = bots.find((b) => b.role === 'late')!;
     check(lateBot.c.status === 'open' && lateBot.c.log.hash === serverHash, 'late joiner received the snapshot and matches the server');
     const sameSeat = bots.filter((b) => b.role === 'dropper').every((b) => host.room!.players.find((p) => p.id === b.c.you)?.connected);
-    check(sameSeat && host.room!.players.length === BOTS + 1, `reconnected bots kept their seats (${host.room!.players.length} players total incl. late joiner)`);
+    check(sameSeat && host.room!.players.length === BOTS + 1 + (WITH_PAGE ? 1 : 0), `reconnected bots kept their seats (${host.room!.players.length} players total incl. late joiner)`);
     const guessed = host.room!.players.filter((p) => p.guessed).length;
     check(guessed >= expectedGuessers - DROPPERS, `guessers scored (${guessed} correct guesses)`);
+
+    if (fr) {
+      check(fr.n === serverN && fr.hash === serverHash, `browser page's op-log hash == server's (${fr.hash}, ${fr.n} ops)`);
+      check(fr.frames.length > 100, `rAF probe collected ${fr.frames.length} frames`);
+    }
 
     // ---------------- metrics
     const dur = (t1 - t0) / 1000;
@@ -227,6 +264,19 @@ Measured in one process (shared clock), ${lat.length} deliveries. Includes the d
 
 Cloudflare bills incoming WebSocket messages 20:1 as requests, outgoing are free: this turn = **${fmt(billedReqPerTurn, 0)} billed requests** (+ ${bots.length} connection requests) out of the free 100,000/day.
 
+${fr ? (() => {
+  const f = fr.frames, secs = f.reduce((a, b) => a + b, 0) / 1000;
+  const over = (ms: number) => f.filter((x) => x > ms).length;
+  return `### Browser page in the room (Chromium headless, 390x844 phone emulation, software rendering, same machine as the server and all ${BOTS} bots)
+One real page played the guesser role through the whole turn while the drawer streamed strokes; a \`requestAnimationFrame\` probe recorded every frame interval.
+
+| frames | avg fps | p50 | p95 | p99 | max | > 20 ms | > 33 ms | > 50 ms | > 100 ms | long tasks (>50 ms) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ${f.length} | ${fmt(f.length / secs, 1)} | ${fmt(pct(f, 50))} ms | ${fmt(pct(f, 95))} ms | ${fmt(pct(f, 99))} ms | ${fmt(Math.max(...f))} ms | ${over(20)} | ${over(33)} | ${over(50)} | ${over(100)} | ${fr.long.length} |
+
+Page canvas: ${fr.n} ops, op-log hash \`${fr.hash}\` (= server), pixel hash \`${fr.px}\`.
+Caveat: the probe shares CPU with ${BOTS} bots, wrangler/workerd and the drawer, so on a real phone frame times will differ; the numbers show the UI does not re-render per stroke under a 42-player stream.
+`; })() : ''}
 ## Verdict
 ${failures.length ? '**FAILED**:\n' + failures.map((f) => '- ' + f).join('\n') : '**PASS** — all checks above succeeded.'}
 `;
@@ -235,6 +285,7 @@ ${failures.length ? '**FAILED**:\n' + failures.map((f) => '- ' + f).join('\n') :
     void word;
   } finally {
     for (const b of bots) b.c.close();
+    await browser?.close();
     server.stop();
   }
   if (failures.length) { console.error('FAILED:\n' + failures.join('\n')); process.exit(1); }

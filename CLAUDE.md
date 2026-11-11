@@ -7,8 +7,8 @@ Read **SPEC.md** (protocol, state, settings, rules, limits) and **PLAN.md** (sta
 ## Layout
 - `shared/` — constants, `protocol.ts` (types, validators, settings), `text.ts` (Vietnamese normalize / near-miss / masks), `words/` (word packs), `canvas/` (op log, deterministic engine, fill, playback, SoftContext).
 - `server/` — `room-core.ts` (ALL game logic, pure, injected `Io`), `room.ts` (Durable Object adapter), `index.ts` (Worker: `/ws/CODE` → DO; everything else static assets).
-- `client/` — Vite + Preact. `src/net.ts` = connection/canvas sync library (UI independent); `src/main.tsx` = stage-1 debug page only.
-- `scripts/` — `check-words.ts`, `loadtest.ts`, `e2e-canvas.ts`, `lib/dev-server.ts` (starts `wrangler dev`). `tests/` — Vitest. `reports/` — generated evidence.
+- `client/` — Vite + Preact UI (map in SPEC §10). `src/net.ts` = connection/canvas sync library (UI independent), `src/session.ts` = client + surface + gallery, `src/draw/surface.ts` = canvas/input outside Preact, `public/` = icons, manifest, og-image (regenerate: `npm run assets`).
+- `scripts/` — `check-words.ts`, `loadtest.ts`, `uicheck.ts`, `e2e-game.ts`, `size-check.ts`, `make-assets.ts`, `lib/dev-server.ts` (starts `wrangler dev`), `lib/ui-helpers.ts` (Playwright helpers). `tests/` — Vitest. `reports/` — generated evidence.
 
 ## Commands
 ```bash
@@ -18,8 +18,10 @@ npm run dev:client        # vite dev server on :5173, proxies /ws to :8787 (run 
 npm test                  # vitest (78 tests, ~1 s)
 npm run typecheck         # tsc --noEmit
 npm run words:check       # validate word packs (dups, NFC, diacritics, syllable shapes)
-npm run loadtest          # 42 bots vs a fresh wrangler dev; writes reports/loadtest.md (≈ 80 s). Env: DRAW_SECONDS=60 BOTS=42 TARGET_URL=https://… to test a running/deployed server
-npm run e2e               # two headless Chromium pages (Playwright); writes reports/e2e.md + screenshots. Env: TARGET_URL, CHROMIUM_PATH
+npm run uicheck           # Playwright layout check at 4 viewports + behaviour checks; screenshots in reports/screens/, report reports/uicheck.md (build first)
+npm run assets            # regenerate favicon.svg, PNG icons, og-image into client/public
+npm run loadtest          # 42 bots (+ one real Chromium page with a rAF frame-time probe; PAGE=0 disables) vs a fresh wrangler dev; writes reports/loadtest.md (≈ 90 s). Env: DRAW_SECONDS=60 BOTS=42 TARGET_URL=https://… to test a running/deployed server
+npm run e2e               # 3 headless Chromium pages play a full game per drawer mode through the UI; writes reports/e2e.md + screenshots. Env: TARGET_URL, CHROMIUM_PATH
 npm run build             # vite build → dist/ (the Worker's static assets)
 npx wrangler deploy       # deploy (needs `wrangler login` or CLOUDFLARE_API_TOKEN); run `npm run build` first
 npx wrangler deploy --dry-run   # verify the bundle/config without an account
@@ -42,6 +44,8 @@ npx wrangler deploy --dry-run   # verify the bundle/config without an account
 - Free-plan billing: incoming WebSocket messages count 20:1 as requests, outgoing are free. Don't add per-second client pings or chatty messages without re-checking SPEC §1.
 - Deploying evicts live DOs; clients reconnect automatically with their session token.
 - Fonts/libraries come from npm only (the environment may block other hosts). UTF-8 everywhere; word lists must be NFC.
+- **UI rules**: sketchbook look only (CSS variables in `styles.css`; dark theme = same variables), no gradients/glow/blur/emoji, labels 1-3 Vietnamese words, icon-only buttons need `aria-label` + `title` (`IconButton`), one icon set (`icons.tsx`). The canvas and its pointer handling live in `DrawSurface`; never put per-stroke state in Preact. `GameClient` does not emit `change` for `draw/pong/sync/canvas`. Storage goes through `platform.ts` `store` (memory fallback). Route by path only; query strings are stripped. Test hook `window.__vhdc` is read-only debug for Playwright.
+- uicheck/e2e assume `dist/` is current: run `npm run build` first. After UI changes, run `npm run uicheck`, then look at a few screenshots yourself.
 - Playwright: use `playwright-core` with `executablePath` `/opt/pw-browsers/chromium` (pre-installed); do not run `playwright install`.
 
 ## Working rules

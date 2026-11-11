@@ -1,5 +1,5 @@
 import type { JSX } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { GameClient } from './net.ts';
 import { Button, Sheet, Switch } from './ui.tsx';
 import { enterFullscreen, env, exitFullscreen, fullscreenSupported, isFullscreen, openInBrowser } from './platform.ts';
@@ -47,6 +47,8 @@ export function SettingsSheet({ open, onClose, c }: { open: boolean; onClose: ()
   const p = usePrefs();
   const [alt, setAlt] = useState(false);
   const [sure, setSure] = useState(false);
+  const [, bump] = useState(0);
+  useEffect(() => { const f = () => bump((n) => n + 1); document.addEventListener('fullscreenchange', f); return () => document.removeEventListener('fullscreenchange', f); }, []);
   const room = c?.room;
   const isHost = !!room && room.hostId === c?.you;
   const fsOk = fullscreenSupported();

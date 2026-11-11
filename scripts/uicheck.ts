@@ -7,6 +7,8 @@ import type { Page } from 'playwright-core';
 import { GameClient } from '../client/src/net.ts';
 import { ensureServer } from './lib/dev-server.ts';
 import { launch, newPlayer, sleep, waitFor } from './lib/ui-helpers.ts';
+import { initialJs } from './size-check.ts';
+import type { Browser } from 'playwright-core';
 
 const VIEWS = [
   { name: '360x740', w: 360, h: 740, touch: true }, { name: '390x844', w: 390, h: 844, touch: true },
@@ -27,7 +29,7 @@ function audit(): Problem[] {
   const vis = (el: Element): boolean => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0; };
   const scroller = (el: Element): Element | null => { for (let p = el.parentElement; p; p = p.parentElement) { const o = getComputedStyle(p); if (/(auto|scroll)/.test(o.overflowY) && p.scrollHeight > p.clientHeight + 1) return p; } return null; };
   // while a sheet is open only the sheet is interactive: audit it alone
-  const scope: ParentNode = document.querySelector('.sheet') ?? document;
+  const scope = (document.querySelector('.sheet') ?? document) as unknown as Document;
   // rect of the part of an element that is actually visible inside its scrolling ancestors (null when scrolled out of view)
   const clipped = (el: Element): DOMRect | null => {
     let { left, top, right, bottom } = el.getBoundingClientRect();
@@ -69,7 +71,7 @@ function audit(): Problem[] {
     if (top && !(el.contains(top) || top.contains(el)) && !(el as HTMLElement).closest('label')?.contains(top)) probs.push(`covered: ${name(el)} by ${name(top)}`);
   }
   // text overflowing its box
-  const all = [...(scope === document ? document.body : scope as Element).querySelectorAll('*')].filter((e) => vis(e) && !(e instanceof SVGElement));
+  const all = [...(scope === document ? document.body : (scope as unknown as Element)).querySelectorAll('*')].filter((e) => vis(e) && !(e instanceof SVGElement));
   for (const el of all) {
     const own = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent!.trim());
     if (!own.length) continue;
@@ -104,6 +106,47 @@ async function glyphCheck(p: Page): Promise<string[]> {
     if (!faces.length) out.push('no web font loaded');
     return out;
   });
+}
+
+
+/** Behaviour checks that are not layout: first-entry fullscreen question, Zalo/iPhone alternative, code paste, refused join, size budget. */
+async function behaviours(browser: Browser, url: string, log: (s: string) => void): Promise<number> {
+  let bad = 0;
+  const ok = (name: string, pass: boolean, detail = ''): void => { if (!pass) bad++; log(`${pass ? 'PASS' : 'FAIL'} behaviour: ${name}${detail ? ' — ' + detail : ''}`); };
+  const size = initialJs();
+  ok('initial JS under 150 KB gzip', size.ok, `${size.totalKb.toFixed(1)} KB (${size.files.map((f) => f.f.split('/').pop()).join(', ')})`);
+  // first entry asks "Chơi toàn màn hình?", remembers "Không", does not ask again
+  const fresh = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, locale: 'vi-VN' });
+  const p = await fresh.newPage();
+  await p.goto(url + '/?utm_source=zalo&zarsrc=1');
+  await p.waitForSelector('.sheet[aria-label="Chơi toàn màn hình?"]', { timeout: 8000 }).then(() => ok('first entry asks "Chơi toàn màn hình?"', true)).catch(() => ok('first entry asks "Chơi toàn màn hình?"', false));
+  await p.click('.sheet button:has-text("Không")');
+  await p.reload(); await p.waitForSelector('.home');
+  ok('answer is remembered (no second question)', (await p.locator('.sheet').count()) === 0);
+  // code boxes accept a pasted link and a pasted code
+  const filled = async (text: string) => {
+    await p.evaluate((t) => { const el = document.querySelector('.cbox') as HTMLInputElement; el.focus(); const dt = new DataTransfer(); dt.setData('text', t); el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); }, text);
+    await sleep(100);
+    return (await p.locator('.cbox').evaluateAll((els) => (els as HTMLInputElement[]).map((e) => e.value).join('')));
+  };
+  ok('code boxes accept a pasted code', (await filled('abcde')) === 'ABCDE');
+  ok('code boxes accept a pasted link', (await filled('https://example.com/r/k7m2p?zarsrc=9')) === 'K7M2P');
+  // refused join (room does not exist) shows a Vietnamese message instead of hanging
+  await p.fill('#name', 'Lan'); await p.click('button:has-text("Vào phòng")');
+  await p.waitForSelector('.notice', { timeout: 8000 }).then(async () => ok('missing room shows a Vietnamese refusal', /phòng/i.test((await p.locator('.notice').textContent()) ?? ''), (await p.locator('.notice p').textContent()) ?? '')).catch(() => ok('missing room shows a Vietnamese refusal', false));
+  await fresh.close();
+  // fullscreen unavailable (iPhone UA): "Có" explains the working alternative instead of failing silently
+  for (const [label, ua, expect] of [['iPhone', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Zalo', 'Thêm vào MH chính'], ['Android Zalo', 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36 Zalo/12.0', 'Mở bằng trình duyệt']] as const) {
+    const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, userAgent: ua });
+    if (label === 'Android Zalo') await c.addInitScript(() => { Object.defineProperty(document, 'fullscreenEnabled', { value: false }); Object.defineProperty(document, 'webkitFullscreenEnabled', { value: false }); });
+    const q = await c.newPage();
+    await q.goto(url + '/');
+    await q.waitForSelector('.sheet');
+    await q.click('.sheet button:has-text("Có")');
+    await q.waitForSelector(`.sheet :text("${expect}")`, { timeout: 5000 }).then(() => ok(`${label}: "Có" offers the alternative (${expect})`, true)).catch(() => ok(`${label}: "Có" offers the alternative (${expect})`, false));
+    await c.close();
+  }
+  return bad;
 }
 
 async function main(): Promise<void> {
@@ -186,6 +229,7 @@ async function main(): Promise<void> {
   try {
     for (const v of VIEWS) await run(v, false);
     await run(VIEWS[2], true);
+    fails += await behaviours(browser, server.url, log);
   } finally { await browser.close(); server.stop(); }
   writeFileSync('reports/uicheck.md', `# uicheck\n\n\`\`\`\n${report.join('\n')}\n\`\`\`\n\n${fails ? `**${fails} problem(s)**` : '**All checks passed.**'}\n`);
   console.log(fails ? `uicheck: ${fails} problem(s)` : 'uicheck: all passed');

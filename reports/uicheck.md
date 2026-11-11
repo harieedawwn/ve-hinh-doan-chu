@@ -37,6 +37,14 @@ PASS 768x1024-dark drawing
 PASS 768x1024-dark palette
 PASS 768x1024-dark settings
 PASS 768x1024-dark podium
+PASS behaviour: initial JS under 150 KB gzip — 36.8 KB (index-DCXl0_mH.js)
+PASS behaviour: first entry asks "Chơi toàn màn hình?"
+PASS behaviour: answer is remembered (no second question)
+PASS behaviour: code boxes accept a pasted code
+PASS behaviour: code boxes accept a pasted link
+PASS behaviour: missing room shows a Vietnamese refusal — Không tìm thấy phòng này.
+PASS behaviour: iPhone: "Có" offers the alternative (Thêm vào MH chính)
+PASS behaviour: Android Zalo: "Có" offers the alternative (Mở bằng trình duyệt)
 ```
 
 **All checks passed.**

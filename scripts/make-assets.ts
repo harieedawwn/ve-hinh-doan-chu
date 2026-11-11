@@ -58,8 +58,8 @@ async function main(): Promise<void> {
   <div style="width:1200px;height:630px;background:#F5EFE3;position:relative;overflow:hidden;font-family:'Baloo 2'">
     <svg width="1200" height="630" style="position:absolute;inset:0"><path d="M40 560c120-60 200 60 330 0s210 60 340 0 220 40 450-10" fill="none" stroke="#1F8A84" stroke-width="10" stroke-linecap="round"/><path d="M60 80c90 40 140-30 220 10" fill="none" stroke="#2F5DAB" stroke-width="10" stroke-linecap="round"/></svg>
     <div style="position:absolute;left:90px;top:110px;transform:rotate(-2deg)">
-      <div style="font-weight:800;font-size:165px;line-height:0.9;color:#E4572E;text-shadow:8px 8px 0 #1E1B18">Vẽ hình</div>
-      <div style="font-weight:800;font-size:165px;line-height:0.95;color:#1E1B18">đoán chữ</div>
+      <div style="font-weight:800;font-size:150px;line-height:0.9;color:#E4572E;text-shadow:8px 8px 0 #1E1B18">Vẽ hình</div>
+      <div style="font-weight:800;font-size:150px;line-height:0.95;color:#1E1B18">đoán chữ</div>
     </div>
     <div style="position:absolute;right:90px;top:150px;width:300px;height:300px;transform:rotate(4deg);border:8px solid #1E1B18;border-radius:72px;box-shadow:14px 14px 0 #1E1B18;overflow:hidden">${sized(svg('full'), 300)}</div>
     <div style="position:absolute;left:96px;bottom:52px;font:500 36px 'Be Vietnam Pro';color:#1E1B18;background:#FFFAF0;border:5px solid #1E1B18;border-radius:16px;padding:8px 22px;box-shadow:6px 6px 0 #1E1B18">Chơi cùng cả lớp, ngay trên điện thoại</div>

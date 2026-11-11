@@ -19,14 +19,22 @@ Status legend: [x] done · [ ] todo
 - Open: `state` is a full ≈ 6 KB snapshot (avg 8 KB/s/client at 42 players) — add diffs only if real-device testing shows a need.
 - Open: everything measured on local workerd; stage 3 must re-run `TARGET_URL=https://… npm run loadtest` and `npm run e2e` against the deployed Worker.
 
-## Stage 2 — Full UI (Vietnamese, mobile first)
-- [ ] Landing: create room / join by code or `/r/CODE`, name + avatar, remembered name
-- [ ] Lobby: player list, share link/code (copy, Zalo share), all settings (SPEC §3) with sensible presets (class of 42: fixed turns), custom word editor, kick/mute/lock
-- [ ] Game screen: canvas (scaled 1200×900, pointer events, palette, brush sizes, eraser, fill, undo/redo/clear), word choice, mask + hints, timer from server clock, scoreboard with guessed marks, chat/guess box with the separate team channel, "Gần đúng" feedback, reveal and podium screens, MC controls (pause/skip/end)
-- [ ] Phone ergonomics: touch drawing without scroll, safe areas, landscape, small screens, Zalo in-app browser quirks, Vietnamese fonts from npm (e.g. `@fontsource/*`), reduced-motion, dark mode
-- [ ] Connection UX: reconnect banner, "phòng đầy / đã khóa / không tồn tại" errors, over-quota friendly message
-- [ ] Sound/animation polish (optional), accessibility pass
-- [ ] Keep the debug page reachable (e.g. `/debug`) or remove it; update the Playwright e2e to the new selectors
+## Stage 2 — Full UI (Vietnamese, mobile first) — DONE
+- [x] Landing: create room / join by code (5 boxes, paste) or `/r/CODE`, name + avatar remembered, query params stripped
+- [x] Lobby: player grid, share (Web Share, copy, local QR), all SPEC §3 settings in collapsible groups, custom words, kick/mute/host transfer
+- [x] Game: canvas outside Preact, pointer input with smoothing, 7 tools + 5 sizes + 24 presets + recent + HSV, word choice, mask, timer from server clock, compact scoreboard, chat/guess with team channel, "Gần đúng", reveal, podium, gallery with PNG save
+- [x] Phone ergonomics: portrait/landscape/tablet layouts, left-handed mirror, safe areas, visualViewport, Wake Lock, reduced motion, dark theme, first-entry fullscreen question + alternatives, Zalo handling (SPEC §10)
+- [x] Connection UX: reconnect banner keeping the canvas, Vietnamese refusal screen, "Máy chủ đang bận" after repeated failures
+- [x] Sounds (lazy, tactile) + vibration, both toggleable
+- [x] Debug page removed; `scripts/e2e-game.ts` replaces the old canvas e2e; `scripts/uicheck.ts`; load test now includes a real browser page
+
+### Stage 2 results
+`npm test` 78/78 · `npm run typecheck` clean · `npm run uicheck` all passed (see `reports/uicheck.md`) · `npm run e2e` all passed (3 modes, `reports/e2e.md`) · `npm run loadtest` passed with a browser page (`reports/loadtest.md`) · initial JS 36.7 KB gzip.
+
+### Stage 2 hand-over notes
+- Zalo specifics are unverified (research found almost nothing): test on real iOS/Android Zalo, log UA and `location.href`, and bump `og-image.png?v=` after any preview change (Zalo caches).
+- iOS keyboard / `visualViewport`, Wake Lock, vibration and Web Share cannot be proven in headless Chromium.
+- Possible polish: avatar picker screen, chat in the lobby, haptics tuning, landscape-phone toolbar scrolls when the screen is under ~420 px high.
 
 ## Stage 3 — Review and deploy
 - [ ] Code review (`/code-review`, security review of the WebSocket surface: validation, rate limits, origin check)

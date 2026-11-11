@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "words:check": "node --experimental-strip-types scripts/check-words.ts",
     "loadtest": "node --experimental-strip-types scripts/loadtest.ts",
-    "e2e": "node --experimental-strip-types scripts/e2e-canvas.ts",
+    "e2e": "node --experimental-strip-types scripts/e2e-game.ts",
     "uicheck": "node --experimental-strip-types scripts/uicheck.ts",
     "assets": "node --experimental-strip-types scripts/make-assets.ts"
   },
