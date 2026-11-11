@@ -6,7 +6,8 @@ class FakeWS {
   static last: FakeWS;
   readyState = 1; sent: string[] = [];
   onopen: (() => void) | null = null; onmessage: ((e: { data: string }) => void) | null = null; onclose: (() => void) | null = null; onerror: (() => void) | null = null;
-  constructor(public url: string) { FakeWS.last = this; queueMicrotask(() => this.onopen?.()); }
+  url: string;
+  constructor(url: string) { this.url = url; FakeWS.last = this; queueMicrotask(() => this.onopen?.()); }
   send(d: string) { this.sent.push(d); }
   close() { this.onclose?.(); }
   push(m: ServerMsg) { this.onmessage?.({ data: JSON.stringify(m) }); }

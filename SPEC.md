@@ -35,8 +35,8 @@ Not confirmed by the docs fetch (we do not rely on them): exact idle time before
 - Rooms are deleted 30 min after they empty (`storage.deleteAll()`).
 
 ### Measured traffic (reports/loadtest.md, 42 bots + 1 late joiner, 60 s turn, local workerd)
-- 1,689 frames into the DO in 60 s = 28 msgs/s average (peak 69/s) → 84 billed requests per turn (+ 43 connection requests).
-- Per client: 8.3 KB/s received on average, guessers send ≈ 5 B/s.
+- 1,683 frames into the DO in 60 s = 28 msgs/s average (peak 72/s) → 84 billed requests per turn (+ 43 connection requests).
+- Per client: 8.4 KB/s received on average, guessers send ≈ 5 B/s.
 
 ### Estimate: 42-player game-hours per day on the free plan
 A turn cycle ≈ 15 s choosing + 80 s drawing + 7 s reveal ≈ 100 s → 36 turns/hour.
@@ -206,7 +206,7 @@ UI notes: show the countdown from `phaseEndsAt`; do not display `reveal.word` be
 | # | Item | Evidence |
 |---|---|---|
 | A1 | Vitest covers the state machine in all three modes, scoring, fair drawer selection, hints, guess normalization and near-miss, host transfer, reconnect, late join, word privacy; all pass | `npm test` → 6 files, 78 tests passed. Modes: `room.game.test.ts` "Chỉ host vẽ", "Host không vẽ", `room.basic.test.ts` "rotate mode"; scoring/hints/guesses/privacy in `room.game.test.ts`; fairness (8 players ×2 rounds, 14-player turn mode, late joiner); host transfer, reconnect, late join, relay validation, rate limits, expiry, hibernation round-trip in `room.presence.test.ts`; normalization/near-miss in `text.test.ts`; canvas in `canvas.test.ts`; clock sync in `client.test.ts` |
-| A2 | `npm run loadtest`: 42 bots vs `wrangler dev`; drawer streams strokes a full turn; others chat/guess; 5 drop+reconnect; 1 joins late; reports p50/p95 relay latency, bytes/s per client, msgs/s into DO, zero lost/reordered ops, all op-log hashes equal the server's; report in `reports/loadtest.md` | `reports/loadtest.md`: 43/43 hashes equal (2,934 ops), 0 gaps, 5/5 reconnects, late joiner matches, p50 14.0 ms / p95 22.8 ms / p99 43.3 ms, 8.3 KB/s received per client, 28.1 msgs/s (peak 69) into the DO |
+| A2 | `npm run loadtest`: 42 bots vs `wrangler dev`; drawer streams strokes a full turn; others chat/guess; 5 drop+reconnect; 1 joins late; reports p50/p95 relay latency, bytes/s per client, msgs/s into DO, zero lost/reordered ops, all op-log hashes equal the server's; report in `reports/loadtest.md` | `reports/loadtest.md`: 43/43 hashes equal (2,913 ops), 0 gaps, 5/5 reconnects, late joiner matches, p50 13.9 ms / p95 22.6 ms / p99 42.8 ms, 8.4 KB/s received per client, 28.0 msgs/s (peak 72) into the DO |
 | A3 | Two headless Chromium pages on the debug page, one room: draw, fill, undo, redo on one → identical canvas on the other; screenshots in `reports/` | `npm run e2e` → `reports/e2e.md` (12/12 checks: identical op hash, raw RGBA hash and PNG; fill red inside, not outside; reload restores the same canvas and seat) + `reports/e2e-drawer.png`, `e2e-viewer.png`, `e2e-viewer-after-reload.png` |
 | A4 | Project `CLAUDE.md` (dev/test/loadtest/build/deploy, gotchas, working rules) and `PLAN.md` (stages 1–4) | files in the repo root |
 | A5 | `npm run build` then `npx wrangler deploy` work from a clean clone | `git clone` → `npm ci` → `npm run build` → `npx wrangler deploy --dry-run` succeeds (assets 3 files, bindings `ROOM` DO + `ASSETS`); real deploy needs the user's Cloudflare login (stage 3) |
