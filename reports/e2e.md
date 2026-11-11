@@ -1,8 +1,8 @@
 # E2E: 3 browser pages, one game per drawer mode
 
-- [x] [rotate] room created with 5-char code — K2X48
+- [x] [rotate] room created with 5-char code — 9N8GR
 - [x] [rotate] share link joins the lobby (3 players, query stripped)
-- [x] [rotate] turn 1: drawer sees the word, guessers see a mask — nhảy cầu
+- [x] [rotate] turn 1: drawer sees the word, guessers see a mask — xe cứu hỏa
 - [x] [rotate] fill: red inside the circle, white outside — 228,87,46 / 255,255,255
 - [x] [rotate] custom colour applied
 - [x] [rotate] custom colour stroke drawn — 47,93,168
@@ -17,25 +17,25 @@
 - [x] [rotate] reload reconnects to the same seat
 - [x] [rotate] canvas restored after reload
 - [x] [rotate] turn 1: everyone guessed -> reveal shows the word
-- [x] [rotate] turn 1: revealed word is correct — nhảy cầu
-- [x] [rotate] turn 2: drawer sees the word, guessers see a mask — phở
+- [x] [rotate] turn 1: revealed word is correct — xe cứu hỏa
+- [x] [rotate] turn 2: drawer sees the word, guessers see a mask — đôi tai
 - [x] [rotate] turn 2: near-miss shows "Gần đúng!"
 - [x] [rotate] turn 2: everyone guessed -> reveal shows the word
-- [x] [rotate] turn 2: revealed word is correct — phở
-- [x] [rotate] turn 3: drawer sees the word, guessers see a mask — Sài Gòn
+- [x] [rotate] turn 2: revealed word is correct — đôi tai
+- [x] [rotate] turn 3: drawer sees the word, guessers see a mask — dòng sông
 - [x] [rotate] turn 3: near-miss shows "Gần đúng!"
 - [x] [rotate] turn 3: everyone guessed -> reveal shows the word
-- [x] [rotate] turn 3: revealed word is correct — Sài Gòn
+- [x] [rotate] turn 3: revealed word is correct — dòng sông
 - [x] [rotate] game reaches the podium
-- [x] [rotate] every player drew once (fair rotation) — Minh,Lan,Hoa
+- [x] [rotate] every player drew once (fair rotation) — Hoa,Minh,Lan
 - [x] [rotate] podium lists all players with scores
 - [x] [rotate] gallery has one drawing per turn — 3/3
 - [x] [rotate] gallery image opens with a save button
 - [x] [rotate] save PNG downloads a file
-- [x] [hostOnly] room created with 5-char code — UBFGQ
+- [x] [hostOnly] room created with 5-char code — XJZ4M
 - [x] [hostOnly] share link joins the lobby (3 players, query stripped)
 - [x] [hostOnly] host draws turn 1
-- [x] [hostOnly] turn 1: drawer sees the word, guessers see a mask — khúc côn cầu
+- [x] [hostOnly] turn 1: drawer sees the word, guessers see a mask — sân bay
 - [x] [hostOnly] fill: red inside the circle, white outside — 228,87,46 / 255,255,255
 - [x] [hostOnly] custom colour applied
 - [x] [hostOnly] custom colour stroke drawn — 47,93,168
@@ -50,21 +50,21 @@
 - [x] [hostOnly] reload reconnects to the same seat
 - [x] [hostOnly] canvas restored after reload
 - [x] [hostOnly] turn 1: everyone guessed -> reveal shows the word
-- [x] [hostOnly] turn 1: revealed word is correct — khúc côn cầu
+- [x] [hostOnly] turn 1: revealed word is correct — sân bay
 - [x] [hostOnly] host draws turn 2
-- [x] [hostOnly] turn 2: drawer sees the word, guessers see a mask — áo dài cưới
+- [x] [hostOnly] turn 2: drawer sees the word, guessers see a mask — đôi tai
 - [x] [hostOnly] turn 2: near-miss shows "Gần đúng!"
 - [x] [hostOnly] turn 2: everyone guessed -> reveal shows the word
-- [x] [hostOnly] turn 2: revealed word is correct — áo dài cưới
+- [x] [hostOnly] turn 2: revealed word is correct — đôi tai
 - [x] [hostOnly] game reaches the podium
 - [x] [hostOnly] podium lists all players with scores
 - [x] [hostOnly] gallery has one drawing per turn — 2/2
 - [x] [hostOnly] gallery image opens with a save button
 - [x] [hostOnly] save PNG downloads a file
-- [x] [hostMC] room created with 5-char code — RCTAY
+- [x] [hostMC] room created with 5-char code — UV3EX
 - [x] [hostMC] share link joins the lobby (3 players, query stripped)
 - [x] [hostMC] MC host never draws
-- [x] [hostMC] turn 1: drawer sees the word, guessers see a mask — cái giường
+- [x] [hostMC] turn 1: drawer sees the word, guessers see a mask — nem rán
 - [x] [hostMC] fill: red inside the circle, white outside — 228,87,46 / 255,255,255
 - [x] [hostMC] custom colour applied
 - [x] [hostMC] custom colour stroke drawn — 47,93,168
@@ -79,12 +79,12 @@
 - [x] [hostMC] reload reconnects to the same seat
 - [x] [hostMC] canvas restored after reload
 - [x] [hostMC] turn 1: everyone guessed -> reveal shows the word
-- [x] [hostMC] turn 1: revealed word is correct — cái giường
+- [x] [hostMC] turn 1: revealed word is correct — nem rán
 - [x] [hostMC] MC host never draws
-- [x] [hostMC] turn 2: drawer sees the word, guessers see a mask — quả chuối
+- [x] [hostMC] turn 2: drawer sees the word, guessers see a mask — ti vi
 - [x] [hostMC] turn 2: near-miss shows "Gần đúng!"
 - [x] [hostMC] turn 2: everyone guessed -> reveal shows the word
-- [x] [hostMC] turn 2: revealed word is correct — quả chuối
+- [x] [hostMC] turn 2: revealed word is correct — ti vi
 - [x] [hostMC] game reaches the podium
 - [x] [hostMC] podium lists all players with scores
 - [x] [hostMC] gallery has one drawing per turn — 2/2

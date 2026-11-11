@@ -38,8 +38,8 @@ Status legend: [x] done · [ ] todo
 
 ## Stage 3 — Review and deploy
 - [x] Code review (Opus read-only review, 10 findings fixed with regression tests, SPEC §11); `/version` + quota screen (SPEC §1)
-- [ ] Connect the repo to Cloudflare Workers Builds (build `npm run build`, deploy `npx wrangler deploy`), first deploy, check the DO migration
-- [ ] Re-run load test and e2e against the deployed URL (`TARGET_URL=…`); real phones on mobile data (latency, reconnect, Zalo browser)
+- [x] Workers Builds deploy from main works; `/version` polled until live
+- [x] Load test, e2e and link-preview check re-run against production (reports/loadtest.md); real phones still to do (TEST_ON_PHONES.md)
 - [ ] Watch the Cloudflare dashboard for requests / duration / rows after a real 42-player session; compare with SPEC §1; tune batch interval/persist debounce if needed
 - [ ] Optional custom domain; `wrangler tail` sanity check
 
